@@ -1212,7 +1212,11 @@ static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *i
 		break;
 	}
 	sensor->video.attr = &sensor_attr;
-	sensor->video.attr->expo_fs = 1,
+	/* No expo_fs on t23: the field is a t31 carry-over, the t23 ports of
+	 * the sibling jxk04/jxk05 drivers drop it, and the vendor blob leaves
+	 * it at 0. Forcing it to 1 sent libimp down a path it cannot service
+	 * here and it faulted on a null deref right after sensor_set_vflip.
+	 */
 	sensor->video.shvflip = shvflip;
 	sensor->video.vi_max_width = wsize->width;
 	sensor->video.vi_max_height = wsize->height;

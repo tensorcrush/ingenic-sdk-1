@@ -201,7 +201,12 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.dbus_type = TX_SENSOR_DATA_INTERFACE_MIPI,
 	.mipi = {
 	.mode = SENSOR_MIPI_OTHER_MODE,
-	.clk = 400,
+	/* Lane rate must clear active_pixels * bpp / lanes / line_period.
+	 * 2304x1296 sends 2304 px of RAW10 over 2 lanes in a 17 us line,
+	 * i.e. 678 Mbps; the vendor's 400 belongs to its 1440x1440 default
+	 * mode, which only needs 327 Mbps.
+	 */
+	.clk = 800,
 	.lans = 2,
 	.settle_time_apative_en = 1,
 	.mipi_sc.sensor_csi_fmt = TX_SENSOR_RAW10,

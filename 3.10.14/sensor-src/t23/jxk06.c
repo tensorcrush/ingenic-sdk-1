@@ -58,7 +58,11 @@ static int sensor_resolution = SENSOR_RES_400;
 module_param(sensor_resolution, int, S_IRUGO);
 MODULE_PARM_DESC(sensor_resolution, "Sensor Resolution set interface");
 
-static int sensor_max_fps = TX_SENSOR_MAX_FPS_30;
+/* Default to the mode the vendor blob itself boots in: win_sizes[0],
+ * 1440x1440@15fps. Its static attr is known byte for byte, whereas
+ * 2304x1296 storms the VIC with "hor err" on every line.
+ */
+static int sensor_max_fps = TX_SENSOR_MAX_FPS_15;
 module_param(sensor_max_fps, int, S_IRUGO);
 MODULE_PARM_DESC(sensor_max_fps, "Sensor Max Fps set interface");
 
@@ -201,20 +205,15 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.dbus_type = TX_SENSOR_DATA_INTERFACE_MIPI,
 	.mipi = {
 	.mode = SENSOR_MIPI_OTHER_MODE,
-	/* Lane rate must clear active_pixels * bpp / lanes / line_period.
-	 * 2304x1296 sends 2304 px of RAW10 over 2 lanes in a 17 us line,
-	 * i.e. 678 Mbps; the vendor's 400 belongs to its 1440x1440 default
-	 * mode, which only needs 327 Mbps.
-	 */
-	.clk = 800,
+	.clk = 400,
 	.lans = 2,
 	.settle_time_apative_en = 1,
 	.mipi_sc.sensor_csi_fmt = TX_SENSOR_RAW10,
 	.mipi_sc.hcrop_diff_en = 0,
 	.mipi_sc.mipi_vcomp_en = 0,
 	.mipi_sc.mipi_hcomp_en = 0,
-	.image_twidth = 2304,
-	.image_theight = 1296,
+	.image_twidth = 1440,
+	.image_theight = 1440,
 	.mipi_sc.mipi_crop_start0x = 0,
 	.mipi_sc.mipi_crop_start0y = 0,
 	.mipi_sc.mipi_crop_start1x = 0,
@@ -237,17 +236,18 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.max_dgain = 0,
 	.min_integration_time = 4,
 	.min_integration_time_native = 4,
-	.max_integration_time_native = 1440 - 4,
-	.integration_time_limit = 1440 - 4,
+	.max_integration_time_native = 1500 - 4,
+	.integration_time_limit = 1500 - 4,
 	/* total_width = HTS(0x21:0x20) * 2, total_height = VTS(0x23:0x22).
-	 * 2304x1296@20fps : HTS=1500 VTS=1440 -> 3000 * 1440 * 20 = 86.4 MHz = SCLK.
-	 * Rule verified against the vendor jxk06_attr blob, whose default mode
-	 * 1440x1440@15fps (HTS=1920 VTS=1500) yields exactly 3840 / 1500.
+	 * 1440x1440@15fps : HTS=1920 VTS=1500 -> 3840 * 1500 * 15 = 86.4 MHz = SCLK.
+	 * These are the vendor blob's own static values, reproduced exactly.
+	 * For 2304x1296@20fps the same rule gives 3000 * 1440, which the VIC
+	 * currently rejects; that mode still needs work.
 	 */
-	.total_width = 3000,
-	.total_height = 1440,
-	.max_integration_time = 1440 - 4,
-	.one_line_expr_in_us = 17,
+	.total_width = 3840,
+	.total_height = 1500,
+	.max_integration_time = 1500 - 4,
+	.one_line_expr_in_us = 22,
 	.integration_time_apply_delay = 2,
 	.again_apply_delay = 2,
 	.dgain_apply_delay = 0,

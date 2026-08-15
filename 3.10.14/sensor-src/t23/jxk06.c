@@ -30,11 +30,6 @@
 #define SENSOR_I2C_ADDRESS 0x40
 
 // ============================================================================
-// ============================================================================
-#define SENSOR_MAX_WIDTH 2560
-#define SENSOR_MAX_HEIGHT 1440
-
-// ============================================================================
 // REGISTER DEFINITIONS
 // ============================================================================
 #define SENSOR_REG_END 0xff
@@ -146,6 +141,22 @@ struct again_lut sensor_again_lut[] = {
 	{0x3d, 252836},
 	{0x3e, 256041},
 	{0x3f, 259142},
+	{0x40, 262144},
+	{0x41, 267875},
+	{0x42, 273280},
+	{0x43, 278392},
+	{0x44, 283241},
+	{0x45, 287854},
+	{0x46, 292253},
+	{0x47, 296456},
+	{0x48, 300480},
+	{0x49, 304339},
+	{0x4a, 308048},
+	{0x4b, 311616},
+	{0x4c, 315054},
+	{0x4d, 318372},
+	{0x4e, 321577},
+	{0x4f, 324678},
 };
 
 struct tx_isp_sensor_attribute sensor_attr;
@@ -190,9 +201,9 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.dbus_type = TX_SENSOR_DATA_INTERFACE_MIPI,
 	.mipi = {
 	.mode = SENSOR_MIPI_OTHER_MODE,
-	.clk = 800,
+	.clk = 400,
 	.lans = 2,
-	.settle_time_apative_en = 0,
+	.settle_time_apative_en = 1,
 	.mipi_sc.sensor_csi_fmt = TX_SENSOR_RAW10,
 	.mipi_sc.hcrop_diff_en = 0,
 	.mipi_sc.mipi_vcomp_en = 0,
@@ -217,16 +228,21 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.mipi_sc.sensor_mode = TX_SENSOR_DEFAULT_MODE,
 	},
 	.data_type = TX_SENSOR_DATA_TYPE_LINEAR,
-	.max_again = 259142,
+	.max_again = 324678,
 	.max_dgain = 0,
 	.min_integration_time = 4,
 	.min_integration_time_native = 4,
 	.max_integration_time_native = 1440 - 4,
 	.integration_time_limit = 1440 - 4,
-	.total_width = 2432,
+	/* total_width = HTS(0x21:0x20) * 2, total_height = VTS(0x23:0x22).
+	 * 2304x1296@20fps : HTS=1500 VTS=1440 -> 3000 * 1440 * 20 = 86.4 MHz = SCLK.
+	 * Rule verified against the vendor jxk06_attr blob, whose default mode
+	 * 1440x1440@15fps (HTS=1920 VTS=1500) yields exactly 3840 / 1500.
+	 */
+	.total_width = 3000,
 	.total_height = 1440,
 	.max_integration_time = 1440 - 4,
-	.one_line_expr_in_us = 22,
+	.one_line_expr_in_us = 17,
 	.integration_time_apply_delay = 2,
 	.again_apply_delay = 2,
 	.dgain_apply_delay = 0,
@@ -864,7 +880,9 @@ static int sensor_set_fps(struct tx_isp_subdev *sd, int fps)
 	switch(sensor_max_fps) {
 	case TX_SENSOR_MAX_FPS_15:
 		max_fps = TX_SENSOR_MAX_FPS_15;
-		sclk = SENSOR_SUPPORT_SCLK_4M;
+		/* hts is scaled by 4 below while the real line length is HTS*2,
+		 * so sclk carries twice the pixel rate on every path. */
+		sclk = SENSOR_SUPPORT_SCLK_4M << 1;
 		break;
 	case TX_SENSOR_MAX_FPS_30:
 		max_fps = SENSOR_OUTPUT_MAX_FPS;

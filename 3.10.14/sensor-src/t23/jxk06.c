@@ -72,6 +72,39 @@ static int shvflip = 1;
 module_param(shvflip, int, S_IRUGO);
 MODULE_PARM_DESC(shvflip, "Sensor HV Flip Enable interface");
 
+/* Geometry overrides, -1 keeps the value the selected win_size implies.
+ * The ISP has to be told exactly how many pixels and lines the sensor
+ * really sends; when it is told more, the surplus shows up as garbage at
+ * the bottom of every frame. These let that be probed without a rebuild.
+ */
+static int ovr_twidth = -1;
+module_param(ovr_twidth, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_twidth, "override mipi.image_twidth (-1 = auto)");
+
+static int ovr_theight = -1;
+module_param(ovr_theight, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_theight, "override mipi.image_theight (-1 = auto)");
+
+static int ovr_total_width = -1;
+module_param(ovr_total_width, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_total_width, "override total_width (-1 = auto)");
+
+static int ovr_total_height = -1;
+module_param(ovr_total_height, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_total_height, "override total_height (-1 = auto)");
+
+static int ovr_line_us = -1;
+module_param(ovr_line_us, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_line_us, "override one_line_expr_in_us (-1 = auto)");
+
+static int ovr_clk = -1;
+module_param(ovr_clk, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_clk, "override mipi.clk in Mbps (-1 = auto)");
+
+static int ovr_win = -1;
+module_param(ovr_win, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_win, "force win_sizes index 0/1/2 (-1 = from sensor_max_fps)");
+
 struct regval_list {
     uint16_t reg_num;
     unsigned char value;
@@ -1220,6 +1253,34 @@ static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *i
 		ISP_WARNING("Do not support this resolution now.\n");
 		break;
 	}
+
+	if (ovr_win >= 0 && ovr_win < ARRAY_SIZE(sensor_win_sizes)) {
+		wsize = &sensor_win_sizes[ovr_win];
+		sensor_attr.mipi.image_twidth = wsize->width;
+		sensor_attr.mipi.image_theight = wsize->height;
+	}
+	if (ovr_twidth > 0)
+		sensor_attr.mipi.image_twidth = ovr_twidth;
+	if (ovr_theight > 0)
+		sensor_attr.mipi.image_theight = ovr_theight;
+	if (ovr_total_width > 0)
+		sensor_attr.total_width = ovr_total_width;
+	if (ovr_total_height > 0) {
+		sensor_attr.total_height = ovr_total_height;
+		sensor_attr.max_integration_time_native = ovr_total_height - 4;
+		sensor_attr.integration_time_limit = ovr_total_height - 4;
+		sensor_attr.max_integration_time = ovr_total_height - 4;
+	}
+	if (ovr_line_us > 0)
+		sensor_attr.one_line_expr_in_us = ovr_line_us;
+	if (ovr_clk > 0)
+		sensor_attr.mipi.clk = ovr_clk;
+
+	ISP_WARNING("%s: win %dx%d, mipi %ux%u, total %ux%u, line %uus, clk %u\n",
+		    SENSOR_NAME, wsize ? wsize->width : 0, wsize ? wsize->height : 0,
+		    sensor_attr.mipi.image_twidth, sensor_attr.mipi.image_theight,
+		    sensor_attr.total_width, sensor_attr.total_height,
+		    sensor_attr.one_line_expr_in_us, sensor_attr.mipi.clk);
 	sensor->video.attr = &sensor_attr;
 	/* No expo_fs on t23: the field is a t31 carry-over, the t23 ports of
 	 * the sibling jxk04/jxk05 drivers drop it, and the vendor blob leaves

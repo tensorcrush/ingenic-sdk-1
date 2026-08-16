@@ -245,7 +245,11 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.settle_time_apative_en = 1,
 	.mipi_sc.sensor_csi_fmt = TX_SENSOR_RAW10,
 	.mipi_sc.hcrop_diff_en = 0,
-	.mipi_sc.mipi_vcomp_en = 0,
+	/* The vendor blob enables vertical compensation and spells the CSI-2
+	 * data type out as 0x2B (RAW10); leaving both at zero truncates the
+	 * bottom of every frame and upsets the VIC on the wider modes.
+	 */
+	.mipi_sc.mipi_vcomp_en = 1,
 	.mipi_sc.mipi_hcomp_en = 0,
 	.image_twidth = 1440,
 	.image_theight = 1440,
@@ -260,7 +264,7 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.mipi_sc.line_sync_mode = 0,
 	.mipi_sc.work_start_flag = 0,
 	.mipi_sc.data_type_en = 0,
-	.mipi_sc.data_type_value = 0,
+	.mipi_sc.data_type_value = 0x2b,
 	.mipi_sc.del_start = 0,
 	.mipi_sc.sensor_frame_mode = TX_SENSOR_DEFAULT_FRAME_MODE,
 	.mipi_sc.sensor_fid_mode = 0,

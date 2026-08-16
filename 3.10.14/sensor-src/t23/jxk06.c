@@ -58,11 +58,13 @@ static int sensor_resolution = SENSOR_RES_400;
 module_param(sensor_resolution, int, S_IRUGO);
 MODULE_PARM_DESC(sensor_resolution, "Sensor Resolution set interface");
 
-/* Default to the mode the vendor blob itself boots in: win_sizes[0],
- * 1440x1440@15fps. Its static attr is known byte for byte, whereas
- * 2304x1296 storms the VIC with "hor err" on every line.
+/* TX_SENSOR_MAX_FPS_30 selects win_sizes[1], 2304x1296@20fps, the sensor's
+ * native mode and the one the stock firmware runs. TX_SENSOR_MAX_FPS_15
+ * selects win_sizes[0], 1440x1440@15fps, which reproduces the vendor blob's
+ * own default. Both carry matching attr geometry, so either can be chosen
+ * at load time without rebuilding.
  */
-static int sensor_max_fps = TX_SENSOR_MAX_FPS_15;
+static int sensor_max_fps = TX_SENSOR_MAX_FPS_30;
 module_param(sensor_max_fps, int, S_IRUGO);
 MODULE_PARM_DESC(sensor_max_fps, "Sensor Max Fps set interface");
 
@@ -1191,21 +1193,28 @@ static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	sd = &sensor->sd;
 	video = &sensor->video;
+	/* The static attr above describes win_sizes[0] (1440x1440@15fps), the
+	 * mode the vendor blob boots in. Any other mode has to carry its own
+	 * geometry, otherwise the ISP is told a frame size the sensor never
+	 * sends and the VIC raises "hor err" on every line.
+	 */
 	switch(sensor_max_fps) {
 	case TX_SENSOR_MAX_FPS_15:
-		wsize=&sensor_win_sizes[0];
+		wsize = &sensor_win_sizes[0];
 		break;
 	case TX_SENSOR_MAX_FPS_30:
-		wsize=&sensor_win_sizes[1];
-#if 0
-		sensor_attr.max_integration_time_native = 2400 - 4;
-		sensor_attr.integration_time_limit = 2400 - 4;
-		sensor_attr.total_width = 2880;
-		sensor_attr.total_height = 2400;
-		sensor_attr.max_integration_time = 2400 - 4;
+		wsize = &sensor_win_sizes[1];
+		/* 2304x1296@20fps: HTS=1500 VTS=1440, so total_width = HTS * 2
+		 * and one line lasts HTS / 86.4 MHz = 17 us.
+		 */
+		sensor_attr.mipi.image_twidth = 2304;
+		sensor_attr.mipi.image_theight = 1296;
+		sensor_attr.max_integration_time_native = 1440 - 4;
+		sensor_attr.integration_time_limit = 1440 - 4;
+		sensor_attr.max_integration_time = 1440 - 4;
+		sensor_attr.total_width = 3000;
+		sensor_attr.total_height = 1440;
 		sensor_attr.one_line_expr_in_us = 17;
-		sensor_attr.mipi.mipi_sc.sensor_csi_fmt = TX_SENSOR_RAW10;
-#endif
 		break;
 	default:
 		ISP_WARNING("Do not support this resolution now.\n");

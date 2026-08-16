@@ -277,7 +277,7 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.mipi_sc.mipi_vcomp_en = 0,
 	.mipi_sc.mipi_hcomp_en = 0,
 	.image_twidth = 1440,
-	.image_theight = 1440,
+	.image_theight = 1120,
 	.mipi_sc.mipi_crop_start0x = 0,
 	.mipi_sc.mipi_crop_start0y = 0,
 	.mipi_sc.mipi_crop_start1x = 0,
@@ -686,7 +686,7 @@ static struct tx_isp_sensor_win_setting sensor_win_sizes[] = {
 	/* [0] 1440*1440 @15fps (preview mode) */
 	{
 		.width = 1440,
-		.height = 1440,
+		.height = 1120,
 		.fps = 15 << 16 | 1,
 		.mbus_code = V4L2_MBUS_FMT_SGBRG10_1X10,
 		.colorspace = V4L2_COLORSPACE_SRGB,
@@ -695,7 +695,9 @@ static struct tx_isp_sensor_win_setting sensor_win_sizes[] = {
 	/* [1] 2304*1296 @20fps (vendor native, default main) */
 	{
 		.width = 2304,
-		.height = 1296,
+		/* The sensor stops delivering around row 1120, so asking for the
+		 * advertised 1296 leaves the tail of every frame as noise. */
+		.height = 1120,
 		.fps = 20 << 16 | 1,
 		.mbus_code = V4L2_MBUS_FMT_SGBRG10_1X10,
 		.colorspace = V4L2_COLORSPACE_SRGB,
@@ -1272,7 +1274,7 @@ static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *i
 		/* the vendor runs its wide modes at mipi.clk 216, not 400 */
 		sensor_attr.mipi.clk = 216;
 		sensor_attr.mipi.image_twidth = 2304;
-		sensor_attr.mipi.image_theight = 1296;
+		sensor_attr.mipi.image_theight = 1120;
 		sensor_attr.max_integration_time_native = 1440 - 4;
 		sensor_attr.integration_time_limit = 1440 - 4;
 		sensor_attr.max_integration_time = 1440 - 4;

@@ -105,6 +105,18 @@ static int ovr_win = -1;
 module_param(ovr_win, int, S_IRUGO);
 MODULE_PARM_DESC(ovr_win, "force win_sizes index 0/1/2 (-1 = from sensor_max_fps)");
 
+static int ovr_settle = -1;
+module_param(ovr_settle, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_settle, "override mipi settle_time_apative_en (-1 = auto)");
+
+static int ovr_vcomp = -1;
+module_param(ovr_vcomp, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_vcomp, "override mipi_sc.mipi_vcomp_en (-1 = auto)");
+
+static int ovr_dtype = -1;
+module_param(ovr_dtype, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_dtype, "override mipi_sc.data_type_value (-1 = auto)");
+
 struct regval_list {
     uint16_t reg_num;
     unsigned char value;
@@ -240,16 +252,17 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.dbus_type = TX_SENSOR_DATA_INTERFACE_MIPI,
 	.mipi = {
 	.mode = SENSOR_MIPI_OTHER_MODE,
-	.clk = 400,
+	.clk = 400,	/* patched per mode in probe, like the vendor template */
 	.lans = 2,
-	.settle_time_apative_en = 1,
+	.settle_time_apative_en = 0,
 	.mipi_sc.sensor_csi_fmt = TX_SENSOR_RAW10,
 	.mipi_sc.hcrop_diff_en = 0,
-	/* The vendor blob enables vertical compensation and spells the CSI-2
-	 * data type out as 0x2B (RAW10); leaving both at zero truncates the
-	 * bottom of every frame and upsets the VIC on the wider modes.
+	/* Values taken from the vendor's Jxk06_mipi template, which probe
+	 * memcpy()s over its whole mipi field: settle_time_apative_en,
+	 * mipi_vcomp_en and data_type_value are all zero there, whatever the
+	 * blob's static attr says.
 	 */
-	.mipi_sc.mipi_vcomp_en = 1,
+	.mipi_sc.mipi_vcomp_en = 0,
 	.mipi_sc.mipi_hcomp_en = 0,
 	.image_twidth = 1440,
 	.image_theight = 1440,
@@ -264,7 +277,7 @@ struct tx_isp_sensor_attribute sensor_attr={
 	.mipi_sc.line_sync_mode = 0,
 	.mipi_sc.work_start_flag = 0,
 	.mipi_sc.data_type_en = 0,
-	.mipi_sc.data_type_value = 0x2b,
+	.mipi_sc.data_type_value = 0,
 	.mipi_sc.del_start = 0,
 	.mipi_sc.sensor_frame_mode = TX_SENSOR_DEFAULT_FRAME_MODE,
 	.mipi_sc.sensor_fid_mode = 0,
@@ -1244,6 +1257,8 @@ static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *i
 		/* 2304x1296@20fps: HTS=1500 VTS=1440, so total_width = HTS * 2
 		 * and one line lasts HTS / 86.4 MHz = 17 us.
 		 */
+		/* the vendor runs its wide modes at mipi.clk 216, not 400 */
+		sensor_attr.mipi.clk = 216;
 		sensor_attr.mipi.image_twidth = 2304;
 		sensor_attr.mipi.image_theight = 1296;
 		sensor_attr.max_integration_time_native = 1440 - 4;
@@ -1279,6 +1294,12 @@ static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *i
 		sensor_attr.one_line_expr_in_us = ovr_line_us;
 	if (ovr_clk > 0)
 		sensor_attr.mipi.clk = ovr_clk;
+	if (ovr_settle >= 0)
+		sensor_attr.mipi.settle_time_apative_en = ovr_settle;
+	if (ovr_vcomp >= 0)
+		sensor_attr.mipi.mipi_sc.mipi_vcomp_en = ovr_vcomp;
+	if (ovr_dtype >= 0)
+		sensor_attr.mipi.mipi_sc.data_type_value = ovr_dtype;
 
 	ISP_WARNING("%s: win %dx%d, mipi %ux%u, total %ux%u, line %uus, clk %u\n",
 		    SENSOR_NAME, wsize ? wsize->width : 0, wsize ? wsize->height : 0,

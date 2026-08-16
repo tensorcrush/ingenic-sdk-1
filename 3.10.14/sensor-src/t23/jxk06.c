@@ -117,6 +117,18 @@ static int ovr_dtype = -1;
 module_param(ovr_dtype, int, S_IRUGO);
 MODULE_PARM_DESC(ovr_dtype, "override mipi_sc.data_type_value (-1 = auto)");
 
+/* The sensor stops short of the advertised height: register 0x2f:0x2e reads
+ * 1116 lines for 2304x1296 and 1134 for 1440x1440, and the frame turns to
+ * noise at exactly that row. These trim the window the ISP is handed.
+ */
+static int ovr_win_w = -1;
+module_param(ovr_win_w, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_win_w, "override the selected win_size width (-1 = auto)");
+
+static int ovr_win_h = -1;
+module_param(ovr_win_h, int, S_IRUGO);
+MODULE_PARM_DESC(ovr_win_h, "override the selected win_size height (-1 = auto)");
+
 struct regval_list {
     uint16_t reg_num;
     unsigned char value;
@@ -1277,6 +1289,14 @@ static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *i
 		wsize = &sensor_win_sizes[ovr_win];
 		sensor_attr.mipi.image_twidth = wsize->width;
 		sensor_attr.mipi.image_theight = wsize->height;
+	}
+	if (wsize && ovr_win_w > 0) {
+		wsize->width = ovr_win_w;
+		sensor_attr.mipi.image_twidth = ovr_win_w;
+	}
+	if (wsize && ovr_win_h > 0) {
+		wsize->height = ovr_win_h;
+		sensor_attr.mipi.image_theight = ovr_win_h;
 	}
 	if (ovr_twidth > 0)
 		sensor_attr.mipi.image_twidth = ovr_twidth;
